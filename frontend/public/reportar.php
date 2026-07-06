@@ -12,7 +12,18 @@ use App\Application\UseCases\Incidencia\CreateIncidenciaUseCase;
 $aulaId = $_GET['aula_id'] ?? null;
 
 if (!$aulaId) {
-    echo "<div style='font-family:sans-serif; text-align:center; padding:3rem;'><h1>⚠️ Error</h1><p>Código QR incorrecto (Aula no especificada).</p></div>";
+    $uri = htmlspecialchars($_SERVER['REQUEST_URI'] ?? '');
+    $get = htmlspecialchars(print_r($_GET, true));
+    echo "<div style='font-family:sans-serif; text-align:center; padding:3rem;'>
+            <h1>⚠️ Error</h1>
+            <p>Código QR incorrecto (Aula no especificada).</p>
+            <hr style='border:1px dashed #e2e8f0; max-width:400px; margin: 2rem auto;'>
+            <p style='font-size:0.85rem; color:#64748b;'><strong>Información de Depuración:</strong><br>
+            URI de Petición: <code>{$uri}</code><br>
+            Parámetros GET recibidos:
+            <pre style='text-align:left; max-width:400px; margin:1rem auto; background:#f1f5f9; padding:0.5rem; border-radius:8px; font-size:0.8rem;'>{$get}</pre>
+            </p>
+          </div>";
     exit;
 }
 

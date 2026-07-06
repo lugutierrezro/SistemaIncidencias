@@ -23,8 +23,10 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         }
         
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        // URL amigable para escaneo móvil
-        $urlQr = "http://" . $host . "/SistemIncidencia/frontend/public/reportar.php?aula_id=" . $aulaId;
+        $scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
+        $scriptDir = ($scriptDir === '/' || $scriptDir === '\\') ? '' : $scriptDir;
+        // URL dinámica amigable para escaneo móvil y clicks directos
+        $urlQr = "http://" . $host . $scriptDir . "/reportar.php?aula_id=" . $aulaId;
         
         $insert = sqlsrv_query($this->conn, "INSERT INTO dbo.QRAula (id_aula, url_qr) VALUES (?, ?)", [$aulaId, $urlQr]);
         if ($insert === false) {

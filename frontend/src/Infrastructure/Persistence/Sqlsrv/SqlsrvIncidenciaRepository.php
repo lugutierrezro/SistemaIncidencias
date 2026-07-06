@@ -155,7 +155,7 @@ class SqlsrvIncidenciaRepository implements IncidenciaRepositoryInterface {
                     CONVERT(NVARCHAR(30), i.fecha_cierre, 126) AS fecha_cierre,
                     CAST(i.id_aula AS VARCHAR(20)) AS aula_id,
                     a.nombre AS aula_nombre
-                FROM dbo.Incidencias i
+                FROM dbo.Incidencia i
                 LEFT JOIN dbo.Aula a ON a.id_aula = i.id_aula
                 LEFT JOIN dbo.Usuario u ON u.id_usuario = i.id_usuario
                 LEFT JOIN dbo.Persona p ON p.id_persona = u.id_persona

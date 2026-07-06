@@ -194,6 +194,46 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
     }
 
     public function saveMensaje(ChatMensaje $mensaje): ChatMensaje {
+        // 1. Clasificación automática si es el primer mensaje enviado por el usuario
+        if (strtolower($mensaje->tipo_remitente) === 'usuario') {
+            $rCount = sqlsrv_query($this->conn, "SELECT COUNT(*) AS cnt FROM dbo.MensajeIncidencia WHERE id_incidencia = ?", [(int)$mensaje->conversacion_id]);
+            if ($rCount && $rowCount = sqlsrv_fetch_array($rCount, SQLSRV_FETCH_ASSOC)) {
+                if ((int)$rowCount['cnt'] === 0) {
+                    $classified = \App\Domain\Services\AutoClassifier::classify($mensaje->contenido);
+                    
+                    $rAula = sqlsrv_query($this->conn, "SELECT a.nombre FROM dbo.Incidencia i LEFT JOIN dbo.Aula a ON a.id_aula = i.id_aula WHERE i.id_incidencia = ?", [(int)$mensaje->conversacion_id]);
+                    $aulaNombre = 'Aula';
+                    if ($rAula && $rowAula = sqlsrv_fetch_array($rAula, SQLSRV_FETCH_ASSOC)) {
+                        $aulaNombre = $rowAula['nombre'] ?? 'Aula';
+                    }
+                    
+                    $subNames = [
+                        1 => 'Proyector',
+                        2 => 'PC Docente',
+                        3 => 'Sin Internet',
+                        4 => 'Lento',
+                        5 => 'Aire Acondicionado',
+                        6 => 'Luz fundida'
+                    ];
+                    $subName = $subNames[$classified['subcategoria_id']] ?? 'Incidencia';
+                    $nuevoAsunto = $subName . " - Soporte en " . $aulaNombre;
+                    
+                    sqlsrv_query($this->conn, "
+                        UPDATE dbo.Incidencia 
+                        SET id_subcategoria_incidencia = ?, 
+                            id_prioridad_incidencia = ?, 
+                            asunto = ? 
+                        WHERE id_incidencia = ?
+                    ", [
+                        $classified['subcategoria_id'],
+                        $classified['prioridad_id'],
+                        $nuevoAsunto,
+                        (int)$mensaje->conversacion_id
+                    ]);
+                }
+            }
+        }
+
         // Mapear remitente para que quede guardado como 'Soporte' o 'Usuario'
         $actorType = (strtolower($mensaje->tipo_remitente) === 'soporte') ? 'Soporte' : 'Usuario';
 

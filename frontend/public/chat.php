@@ -150,10 +150,23 @@ include 'components/sidebar.php';
             </div>
           </div>
 
-          <!-- Banner de incidencia vinculada -->
-          <div id="incidenciaBanner" style="display:none; padding:0.55rem 1.5rem; background:var(--sky-50); border-bottom:1px solid var(--border); font-size:0.82rem; color:var(--text-muted); align-items:center; gap:0.75rem;">
-            <i class="fa-solid fa-link" style="color:var(--primary);"></i>
-            Vinculado a: <strong id="incidenciaBannerText" style="color:var(--sky-700);"></strong>
+          <!-- Detalles de clasificación de incidencia -->
+          <div id="incidenciaBanner" style="display:none; padding:0.6rem 1.5rem; background:#f0f9ff; border-bottom:1px solid var(--border); font-size:0.82rem; color:var(--text-muted); align-items:center; gap:1.25rem; flex-wrap:wrap;">
+            <div class="d-flex align-items-center gap-1">
+              <i class="fa-solid fa-tags" style="color:var(--primary);"></i>
+              <span>Clasificación:</span>
+              <strong id="bannerClasificacion" style="color:#0369a1; margin-left:3px;">—</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <i class="fa-solid fa-triangle-exclamation" style="color:var(--primary);"></i>
+              <span>Prioridad:</span>
+              <strong id="bannerPrioridad" style="color:#0369a1; margin-left:3px;">—</strong>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <i class="fa-solid fa-school" style="color:var(--primary);"></i>
+              <span>Aula:</span>
+              <strong id="bannerAula" style="color:#0369a1; margin-left:3px;">—</strong>
+            </div>
           </div>
 
           <!-- Mensajes -->
@@ -332,14 +345,22 @@ async function seleccionarConversacion(id, nombre, titulo, color) {
   document.getElementById('chatSubtitleActive').textContent = titulo;
   document.getElementById('chatMessages').innerHTML = `<div style="text-align:center;color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Cargando mensajes...</div>`;
 
-  const conv    = conversaciones.find(c => c.id === id);
-  const banner  = document.getElementById('incidenciaBanner');
-  const bannerT = document.getElementById('incidenciaBannerText');
-  if (conv && conv.incidencia_id && conv.incidencia_titulo) {
-    banner.style.display   = 'flex';
-    bannerT.textContent    = conv.incidencia_titulo;
+  const conv   = conversaciones.find(c => c.id === id);
+  const banner = document.getElementById('incidenciaBanner');
+  if (conv && conv.incidencia_id) {
+    banner.style.display = 'flex';
+    const cat = conv.categoria_nombre || 'Sin categoría';
+    const sub = conv.subcategoria_nombre || 'Sin subcategoría';
+    document.getElementById('bannerClasificacion').textContent = `${cat} > ${sub}`;
+    
+    const prio = conv.prioridad || 'media';
+    const prioLabel = { alta: '🔴 Alta', media: '🟡 Media', baja: '🟢 Baja' }[prio.toLowerCase()] || prio;
+    document.getElementById('bannerPrioridad').textContent = prioLabel;
+    
+    const aula = conv.aula_nombre || 'Ninguna';
+    document.getElementById('bannerAula').textContent = aula;
   } else {
-    banner.style.display   = 'none';
+    banner.style.display = 'none';
   }
 
   renderConversaciones(conversaciones);

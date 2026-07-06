@@ -24,11 +24,17 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
                     CAST(i.id_incidencia AS VARCHAR(20)) AS incidencia_id,
                     i.asunto + ISNULL(' (' + a.nombre + ')', '') AS incidencia_titulo,
                     CONVERT(NVARCHAR(30), i.fecha_reporte, 126) AS inserted_at,
-                    CONVERT(NVARCHAR(30), ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte), 126) AS updated_at
+                    CONVERT(NVARCHAR(30), ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte), 126) AS updated_at,
+                    cat.nombre AS categoria_nombre,
+                    sub.nombre AS subcategoria_nombre,
+                    CASE i.id_prioridad_incidencia WHEN 1 THEN 'baja' WHEN 2 THEN 'media' WHEN 3 THEN 'alta' ELSE 'media' END AS prioridad,
+                    a.nombre AS aula_nombre
                 FROM dbo.Incidencia i
                 LEFT JOIN dbo.Aula a ON a.id_aula = i.id_aula
                 LEFT JOIN dbo.Usuario u ON u.id_usuario = i.id_usuario
                 LEFT JOIN dbo.Persona p ON p.id_persona = u.id_persona
+                LEFT JOIN dbo.SubcategoriaIncidencia sub ON sub.id_subcategoria_incidencia = i.id_subcategoria_incidencia
+                LEFT JOIN dbo.CategoriaIncidencia cat ON cat.id_categoria_incidencia = sub.id_categoria_incidencia
                 WHERE i.id_estado_incidencia IN (1, 2)
                 ORDER BY ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte) DESC";
         $stmt = sqlsrv_query($this->conn, $sql);
@@ -46,7 +52,11 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
                 $row['estado'],
                 $row['inserted_at'],
                 $row['updated_at'],
-                $row['incidencia_titulo']
+                $row['incidencia_titulo'],
+                $row['categoria_nombre'],
+                $row['subcategoria_nombre'],
+                $row['prioridad'],
+                $row['aula_nombre']
             );
         }
         return $list;

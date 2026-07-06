@@ -70,7 +70,8 @@ class AutoClassifier {
         
         return [
             'subcategoria_id' => $bestSubId,
-            'prioridad_id' => $bestPrioId
+            'prioridad_id' => $bestPrioId,
+            'has_matches' => ($maxSubMatches > 0 || $maxPrioMatches > 0)
         ];
     }
 }

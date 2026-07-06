@@ -33,6 +33,14 @@ try {
         }
     }
 
+    // Cargar subcategorías para la clasificación interactiva
+    $subcategorias = [];
+    $conn = \App\Infrastructure\Persistence\Sqlsrv\SqlsrvConnection::getConnection();
+    $rSub = sqlsrv_query($conn, "SELECT id_subcategoria_incidencia AS id, nombre FROM dbo.SubcategoriaIncidencia WHERE estado = 'Activo'");
+    while ($rSub && $rowSub = sqlsrv_fetch_array($rSub, SQLSRV_FETCH_ASSOC)) {
+        $subcategorias[] = $rowSub;
+    }
+
     $backendOnline = true;
 } catch (Throwable $e) {
     $backendOnline = false;
@@ -155,12 +163,16 @@ include 'components/sidebar.php';
             <div class="d-flex align-items-center gap-1">
               <i class="fa-solid fa-tags" style="color:var(--primary);"></i>
               <span>Clasificación:</span>
-              <strong id="bannerClasificacion" style="color:#0369a1; margin-left:3px;">—</strong>
+              <select id="selectClasificacion" class="form-control-custom form-select-custom py-0 px-2" style="width:auto; font-size:0.78rem; height:26px; border:1px solid var(--border); background:#fff;" onchange="actualizarClasificacion()"></select>
             </div>
             <div class="d-flex align-items-center gap-1">
               <i class="fa-solid fa-triangle-exclamation" style="color:var(--primary);"></i>
               <span>Prioridad:</span>
-              <strong id="bannerPrioridad" style="color:#0369a1; margin-left:3px;">—</strong>
+              <select id="selectPrioridad" class="form-control-custom form-select-custom py-0 px-2" style="width:auto; font-size:0.78rem; height:26px; border:1px solid var(--border); background:#fff;" onchange="actualizarClasificacion()">
+                <option value="baja">🟢 Baja</option>
+                <option value="media">🟡 Media</option>
+                <option value="alta">🔴 Alta</option>
+              </select>
             </div>
             <div class="d-flex align-items-center gap-1">
               <i class="fa-solid fa-school" style="color:var(--primary);"></i>
@@ -243,6 +255,7 @@ const AVATAR_COLORS  = ['#0ea5e9','#6366f1','#10b981','#f59e0b','#ef4444','#8b5c
 const backendOnline  = <?php echo $backendOnline ? 'true' : 'false'; ?>;
 let conversaciones   = <?php echo json_encode($conversaciones); ?>;
 let incidencias      = <?php echo json_encode($incidencias); ?>;
+let subcategorias    = <?php echo json_encode($subcategorias); ?>;
 let convActivaId     = null;
 let ultimoMsgId      = null;
 
@@ -347,18 +360,26 @@ async function seleccionarConversacion(id, nombre, titulo, color) {
 
   const conv   = conversaciones.find(c => c.id === id);
   const banner = document.getElementById('incidenciaBanner');
+  const selectClas = document.getElementById('selectClasificacion');
   if (conv && conv.incidencia_id) {
     banner.style.display = 'flex';
-    const cat = conv.categoria_nombre || 'Sin categoría';
-    const sub = conv.subcategoria_nombre || 'Sin subcategoría';
-    document.getElementById('bannerClasificacion').textContent = `${cat} > ${sub}`;
     
-    const prio = conv.prioridad || 'media';
-    const prioLabel = { alta: '🔴 Alta', media: '🟡 Media', baja: '🟢 Baja' }[prio.toLowerCase()] || prio;
-    document.getElementById('bannerPrioridad').textContent = prioLabel;
+    // Llenar select de clasificación
+    selectClas.innerHTML = subcategorias.map(s => `
+      <option value="${s.id}">${escapeHtml(s.nombre)}</option>
+    `).join('');
     
-    const aula = conv.aula_nombre || 'Ninguna';
-    document.getElementById('bannerAula').textContent = aula;
+    // Pre-seleccionar subcategoría
+    const subObj = subcategorias.find(s => s.nombre === conv.subcategoria_nombre);
+    if (subObj) {
+      selectClas.value = subObj.id;
+    }
+    
+    // Pre-seleccionar prioridad
+    document.getElementById('selectPrioridad').value = (conv.prioridad || 'media').toLowerCase();
+    
+    // Mostrar aula
+    document.getElementById('bannerAula').textContent = conv.aula_nombre || 'Ninguna';
   } else {
     banner.style.display = 'none';
   }
@@ -479,6 +500,35 @@ async function resolverConversacion() {
     window.location.reload();
   } catch (e) {
     alert('Error al cerrar la conversación: ' + e.message);
+  }
+}
+
+async function actualizarClasificacion() {
+  if (!convActivaId) return;
+  const subcategoria_id = document.getElementById('selectClasificacion').value;
+  const prioridad = document.getElementById('selectPrioridad').value;
+  
+  try {
+    setApiStatus('loading', 'Clasificando...');
+    const r = await fetch(`api/incidencias.php?action=clasificar&id=${encodeURIComponent(convActivaId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subcategoria_id, prioridad })
+    });
+    if (!r.ok) throw new Error('No se pudo actualizar');
+    setApiStatus('ok', 'Clasificación guardada');
+    
+    // Actualizar en el objeto conversaciones local
+    const conv = conversaciones.find(c => c.id === convActivaId);
+    if (conv) {
+      conv.prioridad = prioridad;
+      const sub = subcategorias.find(s => s.id == subcategoria_id);
+      if (sub) {
+        conv.subcategoria_nombre = sub.nombre;
+      }
+    }
+  } catch (e) {
+    setApiStatus('error', 'Error al guardar');
   }
 }
 

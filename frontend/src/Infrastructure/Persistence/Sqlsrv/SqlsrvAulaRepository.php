@@ -28,10 +28,14 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         // URL dinámica amigable para escaneo móvil y clicks directos
         $urlQr = "http://" . $host . $scriptDir . "/reportar.php?aula_id=" . $aulaId;
         
-        $insert = sqlsrv_query($this->conn, "INSERT INTO dbo.QRAula (id_aula, url_qr) VALUES (?, ?)", [$aulaId, $urlQr]);
+        $insert = sqlsrv_query(
+            $this->conn, 
+            "INSERT INTO dbo.QRAula (id_qr_aula, id_aula, url_qr) 
+             VALUES (ISNULL((SELECT MAX(id_qr_aula) FROM dbo.QRAula), 0) + 1, ?, ?)", 
+            [$aulaId, $urlQr]
+        );
         if ($insert === false) {
             $err = sqlsrv_errors();
-            // Si falla por restricción o error, igual retornamos la url que correspondería
         }
         
         return $urlQr;

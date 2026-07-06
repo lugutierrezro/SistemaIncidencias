@@ -41,6 +41,56 @@ try {
         $subcategorias[] = $rowSub;
     }
 
+    // Si viene incidencia_id en la URL (por ejemplo, desde historial de aula),
+    // asegurar que se cargue e integre en las conversaciones, incluso si está resuelta
+    $urlIncidenciaId = $_GET['incidencia_id'] ?? null;
+    if ($urlIncidenciaId) {
+        $encontrado = false;
+        foreach ($conversaciones as $c) {
+            if ($c['incidencia_id'] === $urlIncidenciaId) {
+                $encontrado = true;
+                break;
+            }
+        }
+        if (!$encontrado) {
+            $specInc = $incidenciaRepo->findById($urlIncidenciaId);
+            if ($specInc) {
+                $specIncArray = $specInc->toArray();
+                
+                // Obtener subcategoría y categoría nombres para completar la información
+                $catNombre = null;
+                $subcatNombre = null;
+                $rSpecSub = sqlsrv_query($conn, "
+                    SELECT sub.nombre AS subcat, cat.nombre AS cat 
+                    FROM dbo.SubcategoriaIncidencia sub 
+                    JOIN dbo.CategoriaIncidencia cat ON cat.id_categoria_incidencia = sub.id_categoria_incidencia
+                    WHERE sub.id_subcategoria_incidencia = (
+                        SELECT id_subcategoria_incidencia FROM dbo.Incidencia WHERE id_incidencia = ?
+                    )
+                ", [(int)$urlIncidenciaId]);
+                if ($rSpecSub && $rowSpecSub = sqlsrv_fetch_array($rSpecSub, SQLSRV_FETCH_ASSOC)) {
+                    $catNombre = $rowSpecSub['cat'];
+                    $subcatNombre = $rowSpecSub['subcat'];
+                }
+
+                $conversaciones[] = [
+                    'id' => $specIncArray['id'],
+                    'titulo' => $specIncArray['titulo'],
+                    'incidencia_id' => $specIncArray['id'],
+                    'usuario_nombre' => $specIncArray['reportado_por'],
+                    'estado' => ($specIncArray['estado'] === 'resuelta') ? 'cerrada' : 'activa',
+                    'inserted_at' => $specIncArray['inserted_at'],
+                    'updated_at' => $specIncArray['fecha_cierre'] ?: $specIncArray['inserted_at'],
+                    'incidencia_titulo' => $specIncArray['titulo'] . ' (' . ($specIncArray['aula_nombre'] ?? 'Aula') . ')',
+                    'categoria_nombre' => $catNombre,
+                    'subcategoria_nombre' => $subcatNombre,
+                    'prioridad' => $specIncArray['prioridad'],
+                    'aula_nombre' => $specIncArray['aula_nombre']
+                ];
+            }
+        }
+    }
+
     $backendOnline = true;
 } catch (Throwable $e) {
     $backendOnline = false;
@@ -160,7 +210,12 @@ include 'components/sidebar.php';
 
           <!-- Detalles de clasificación de incidencia -->
           <div id="incidenciaBanner" style="display:none; padding:0.6rem 1.5rem; background:#f0f9ff; border-bottom:1px solid var(--border); font-size:0.82rem; color:var(--text-muted); align-items:center; gap:1.25rem; flex-wrap:wrap;">
-            <div class="d-flex align-items-center gap-1">
+            <!-- Banner de archivado cuando la conversación está cerrada -->
+            <div id="resolvedNotice" style="display:none; width:100%; padding:0.5rem 0.85rem; background:#d1fae5; border-radius:8px; font-size:0.8rem; color:#065f46; font-weight:600; align-items:center; gap:8px;">
+              <i class="fa-solid fa-circle-check"></i>
+              Esta incidencia fue resuelta · Chat archivado en solo lectura
+            </div>
+            <div class="d-flex align-items-center gap-1" id="classificationRow">
               <i class="fa-solid fa-tags" style="color:var(--primary);"></i>
               <span>Clasificación:</span>
               <select id="selectClasificacion" class="form-control-custom form-select-custom py-0 px-2" style="width:auto; font-size:0.78rem; height:26px; border:1px solid var(--border); background:#fff;" onchange="actualizarClasificacion()"></select>
@@ -311,12 +366,14 @@ function renderConversaciones(data) {
     const color   = avatarColor(c.usuario_nombre);
     const inits   = initials(c.usuario_nombre);
     const isActv  = c.id === convActivaId;
-    const stateCls= { activa:'estado-activa', espera:'estado-espera', cerrada:'estado-cerrada' }[c.estado] || 'estado-activa';
+    const isClosed = c.estado === 'cerrada';
+    const stateCls = { activa:'estado-activa', espera:'estado-espera', cerrada:'estado-cerrada' }[c.estado] || 'estado-activa';
+    const closedTag = isClosed ? `<span style="font-size:0.6rem;background:#d1fae5;color:#065f46;border-radius:4px;padding:1px 5px;font-weight:700;">✔ Resuelta</span>` : '';
     return `
-    <div class="conv-item ${isActv ? 'active' : ''}" onclick="seleccionarConversacion('${c.id}','${escapeAttr(c.usuario_nombre)}','${escapeAttr(c.titulo)}','${color}')">
-      <div class="conv-avatar" style="background:${color};">${inits}</div>
+    <div class="conv-item ${isActv ? 'active' : ''} ${isClosed ? 'opacity-75' : ''}" onclick="seleccionarConversacion('${c.id}','${escapeAttr(c.usuario_nombre)}','${escapeAttr(c.titulo)}','${color}')">
+      <div class="conv-avatar" style="background:${isClosed ? '#94a3b8' : color};">${inits}</div>
       <div style="flex:1;min-width:0;">
-        <div class="conv-name">${escapeHtml(c.usuario_nombre)}</div>
+        <div class="conv-name d-flex align-items-center gap-1">${escapeHtml(c.usuario_nombre)} ${closedTag}</div>
         <div class="conv-preview">${escapeHtml(c.titulo)}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
@@ -380,6 +437,27 @@ async function seleccionarConversacion(id, nombre, titulo, color) {
     
     // Mostrar aula
     document.getElementById('bannerAula').textContent = conv.aula_nombre || 'Ninguna';
+    
+    // Manejar estado cerrado vs. activo
+    const resolvedNotice = document.getElementById('resolvedNotice');
+    const classRow       = document.getElementById('classificationRow');
+    const btnResolver    = document.getElementById('btnResolver');
+    const chatFooter     = document.querySelector('.chat-footer');
+    if (conv.estado === 'cerrada') {
+      // Mostrar aviso de archivado
+      if (resolvedNotice) resolvedNotice.style.display = 'flex';
+      // Ocultar controles de clasificación y de respuesta
+      if (classRow)    classRow.style.display    = 'none';
+      if (btnResolver) btnResolver.style.display = 'none';
+      if (chatFooter)  chatFooter.style.display  = 'none';
+      document.getElementById('selectPrioridad').parentElement.style.display = 'none';
+    } else {
+      if (resolvedNotice) resolvedNotice.style.display = 'none';
+      if (classRow)    classRow.style.display    = 'flex';
+      if (btnResolver) btnResolver.style.display = 'block';
+      if (chatFooter)  chatFooter.style.display  = 'flex';
+      document.getElementById('selectPrioridad').parentElement.style.display = 'flex';
+    }
   } else {
     banner.style.display = 'none';
   }
@@ -536,12 +614,14 @@ function procesarParametrosUrl() {
   const params = new URLSearchParams(window.location.search);
   const incId  = params.get('incidencia_id');
   if (!incId) return;
-  const existente = conversaciones.find(c => c.incidencia_id === incId);
+  // Buscar tanto en conversaciones activas como en las resueltas inyectadas
+  const existente = conversaciones.find(c => c.incidencia_id === incId || c.id === incId);
   if (existente) {
     seleccionarConversacion(existente.id, existente.usuario_nombre, existente.titulo, avatarColor(existente.usuario_nombre));
   } else {
+    // Solo abrir modal para crear si la incidencia está activa (no resuelta)
     const inc = incidencias.find(i => i.id === incId);
-    if (inc) {
+    if (inc && inc.estado !== 'resuelta') {
       const modal = new bootstrap.Modal(document.getElementById('modalNuevaCon'));
       modal.show();
       document.getElementById('newConvUsuario').value = inc.reportado_por || 'Usuario';

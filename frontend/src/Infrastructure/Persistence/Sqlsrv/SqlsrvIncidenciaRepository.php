@@ -30,10 +30,10 @@ class SqlsrvIncidenciaRepository implements IncidenciaRepositoryInterface {
         }
 
         if ($incidencia->id === null) {
-            $sql = "INSERT INTO dbo.Incidencia (id_aula, id_usuario, id_subcategoria_incidencia, id_estado_incidencia, id_prioridad_incidencia, asunto, descripcion, origen_reporte, fecha_reporte)
+            $sql = "INSERT INTO dbo.Incidencia (id_incidencia, id_aula, id_usuario, id_subcategoria_incidencia, id_estado_incidencia, id_prioridad_incidencia, asunto, descripcion, origen_reporte, fecha_reporte)
                     OUTPUT CAST(INSERTED.id_incidencia AS VARCHAR(20)) AS id,
                            CONVERT(NVARCHAR(30), INSERTED.fecha_reporte, 126) AS inserted_at
-                    VALUES (" . ($incidencia->aula_id ? "?" : "NULL") . ", ?, 1, ?, ?, ?, ?, 'Web', GETDATE())";
+                    VALUES (ISNULL((SELECT MAX(id_incidencia) FROM dbo.Incidencia), 0) + 1, " . ($incidencia->aula_id ? "?" : "NULL") . ", ?, 1, ?, ?, ?, ?, 'Web', GETDATE())";
             
             $params = [];
             if ($incidencia->aula_id) {

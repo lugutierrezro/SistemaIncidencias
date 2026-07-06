@@ -62,9 +62,9 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
 
     public function save(Aula $aula): Aula {
         if ($aula->id === null) {
-            $sql = "INSERT INTO dbo.Aula (nombre, pabellon, piso, capacidad, observaciones, estado)
+            $sql = "INSERT INTO dbo.Aula (id_aula, nombre, pabellon, piso, capacidad, observaciones, estado)
                     OUTPUT CAST(INSERTED.id_aula AS VARCHAR(20)) AS id
-                    VALUES (?, ?, ?, ?, ?, ?)";
+                    VALUES (ISNULL((SELECT MAX(id_aula) FROM dbo.Aula), 0) + 1, ?, ?, ?, ?, ?, ?)";
             $params = [
                 $aula->nombre,
                 $aula->edificio,

@@ -60,10 +60,10 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
                 $usuarioId = (int)$rowUser['id_usuario'];
             }
 
-            $sql = "INSERT INTO dbo.Incidencia (id_aula, id_usuario, id_subcategoria_incidencia, id_estado_incidencia, id_prioridad_incidencia, asunto, descripcion, origen_reporte, fecha_reporte)
+            $sql = "INSERT INTO dbo.Incidencia (id_incidencia, id_aula, id_usuario, id_subcategoria_incidencia, id_estado_incidencia, id_prioridad_incidencia, asunto, descripcion, origen_reporte, fecha_reporte)
                     OUTPUT CAST(INSERTED.id_incidencia AS VARCHAR(20)) AS id,
                            CONVERT(NVARCHAR(30), INSERTED.fecha_reporte, 126) AS inserted_at
-                    VALUES (" . ($conversacion->incidencia_id ? "?" : "NULL") . ", ?, 1, 1, 2, ?, ?, 'Chat', GETDATE())";
+                    VALUES (ISNULL((SELECT MAX(id_incidencia) FROM dbo.Incidencia), 0) + 1, " . ($conversacion->incidencia_id ? "?" : "NULL") . ", ?, 1, 1, 2, ?, ?, 'Chat', GETDATE())";
             
             $params = [];
             if ($conversacion->incidencia_id) {
@@ -186,10 +186,10 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
         // Mapear remitente para que quede guardado como 'Soporte' o 'Usuario'
         $actorType = (strtolower($mensaje->tipo_remitente) === 'soporte') ? 'Soporte' : 'Usuario';
 
-        $sql = "INSERT INTO dbo.MensajeIncidencia (id_incidencia, tipo_actor, mensaje, fecha_envio)
+        $sql = "INSERT INTO dbo.MensajeIncidencia (id_mensaje_incidencia, id_incidencia, tipo_actor, mensaje, fecha_envio)
                 OUTPUT CAST(INSERTED.id_mensaje_incidencia AS VARCHAR(20)) AS id,
                        CONVERT(NVARCHAR(30), INSERTED.fecha_envio, 126) AS inserted_at
-                VALUES (?, ?, ?, GETDATE())";
+                VALUES (ISNULL((SELECT MAX(id_mensaje_incidencia) FROM dbo.MensajeIncidencia), 0) + 1, ?, ?, ?, GETDATE())";
         $params = [
             (int)$mensaje->conversacion_id,
             $actorType,

@@ -19,13 +19,14 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
         $sql = "SELECT
                     CAST(i.id_incidencia AS VARCHAR(20)) AS id,
                     i.asunto AS titulo,
-                    p.nombres AS usuario_nombre,
+                    ISNULL(a.nombre, p.nombres) AS usuario_nombre,
                     'activa' AS estado,
                     CAST(i.id_incidencia AS VARCHAR(20)) AS incidencia_id,
                     i.asunto AS incidencia_titulo,
                     CONVERT(NVARCHAR(30), i.fecha_reporte, 126) AS inserted_at,
                     CONVERT(NVARCHAR(30), ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte), 126) AS updated_at
                 FROM dbo.Incidencia i
+                LEFT JOIN dbo.Aula a ON a.id_aula = i.id_aula
                 LEFT JOIN dbo.Usuario u ON u.id_usuario = i.id_usuario
                 LEFT JOIN dbo.Persona p ON p.id_persona = u.id_persona
                 WHERE i.id_estado_incidencia IN (1, 2)

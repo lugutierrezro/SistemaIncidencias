@@ -98,7 +98,7 @@ class SqlsrvIncidenciaRepository implements IncidenciaRepositoryInterface {
                         WHEN 3 THEN 'alta'
                         ELSE 'media'
                     END AS prioridad,
-                    p.nombres AS reportado_por,
+                    ISNULL(a.nombre, p.nombres) AS reportado_por,
                     CONVERT(NVARCHAR(30), i.fecha_reporte, 126) AS inserted_at,
                     CONVERT(NVARCHAR(30), i.fecha_cierre, 126) AS fecha_cierre,
                     CAST(i.id_aula AS VARCHAR(20)) AS aula_id,
@@ -150,7 +150,7 @@ class SqlsrvIncidenciaRepository implements IncidenciaRepositoryInterface {
                         WHEN 3 THEN 'alta'
                         ELSE 'media'
                     END AS prioridad,
-                    p.nombres AS reportado_por,
+                    ISNULL(a.nombre, p.nombres) AS reportado_por,
                     CONVERT(NVARCHAR(30), i.fecha_reporte, 126) AS inserted_at,
                     CONVERT(NVARCHAR(30), i.fecha_cierre, 126) AS fecha_cierre,
                     CAST(i.id_aula AS VARCHAR(20)) AS aula_id,

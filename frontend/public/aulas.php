@@ -270,12 +270,7 @@ async function addAula() {
 }
 
 function openDetalleAula(id) {
-  const a = aulaData.find(x => x.id === id);
-  if (!a) return;
-  const ec = estadoConfig[a.estado] || estadoConfig.disponible;
-  const equipoList = (a.equipamiento||'').split(',').map(e=>e.trim()).filter(e=>e!=='');
-  const equipoStr = equipoList.map(e=>equipNames[e]||e).join(', ') || 'Ninguno';
-  alert(`📋 Ficha de Aula\n\nAula: ${a.nombre}\n🏢 Edificio: ${a.edificio||'N/A'}\n📍 Piso: ${a.piso||'N/A'}\n👥 Capacidad: ${a.capacidad} personas\n✅ Estado: ${ec.label}\n🔧 Equipamiento: ${equipoStr}`);
+  window.location.href = `detalle_aula.php?id=${encodeURIComponent(id)}`;
 }
 
 function setView(v) {

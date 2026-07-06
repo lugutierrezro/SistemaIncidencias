@@ -13,6 +13,7 @@ class Aula {
     public string $estado;
     public ?string $inserted_at;
     public ?string $updated_at;
+    public ?string $qr_url;
 
     public function __construct(
         ?string $id,
@@ -23,7 +24,8 @@ class Aula {
         ?string $equipamiento,
         string $estado = 'disponible',
         ?string $inserted_at = null,
-        ?string $updated_at = null
+        ?string $updated_at = null,
+        ?string $qr_url = null
     ) {
         $this->id = $id;
         $this->nombre = $nombre;
@@ -34,6 +36,7 @@ class Aula {
         $this->estado = $estado;
         $this->inserted_at = $inserted_at;
         $this->updated_at = $updated_at;
+        $this->qr_url = $qr_url;
     }
 
     public function toArray(): array {
@@ -46,7 +49,8 @@ class Aula {
             'equipamiento' => $this->equipamiento,
             'estado' => $this->estado,
             'inserted_at' => $this->inserted_at,
-            'updated_at' => $this->updated_at
+            'updated_at' => $this->updated_at,
+            'qr_url' => $this->qr_url
         ];
     }
 }

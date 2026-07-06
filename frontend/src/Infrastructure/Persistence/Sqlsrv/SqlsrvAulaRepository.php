@@ -14,6 +14,27 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         $this->conn = SqlsrvConnection::getConnection();
     }
 
+    private function ensureQrCode(int $aulaId): string {
+        $stmt = sqlsrv_query($this->conn, "SELECT url_qr FROM dbo.QRAula WHERE id_aula = ?", [$aulaId]);
+        if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            if (!empty($row['url_qr'])) {
+                return $row['url_qr'];
+            }
+        }
+        
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // URL amigable para escaneo móvil
+        $urlQr = "http://" . $host . "/SistemIncidencia/frontend/public/reportar.php?aula_id=" . $aulaId;
+        
+        $insert = sqlsrv_query($this->conn, "INSERT INTO dbo.QRAula (id_aula, url_qr) VALUES (?, ?)", [$aulaId, $urlQr]);
+        if ($insert === false) {
+            $err = sqlsrv_errors();
+            // Si falla por restricción o error, igual retornamos la url que correspondería
+        }
+        
+        return $urlQr;
+    }
+
     public function save(Aula $aula): Aula {
         if ($aula->id === null) {
             $sql = "INSERT INTO dbo.Aula (nombre, pabellon, piso, capacidad, observaciones, estado)
@@ -34,6 +55,9 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
             }
             $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
             $aula->id = $row['id'];
+            
+            // Generar y guardar QR
+            $aula->qr_url = $this->ensureQrCode((int)$aula->id);
         } else {
             $sql = "UPDATE dbo.Aula 
                     SET nombre = ?, pabellon = ?, piso = ?, capacidad = ?, observaciones = ?, estado = ?
@@ -52,16 +76,21 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
                 $err = sqlsrv_errors();
                 throw new RuntimeException('Error al actualizar aula: ' . ($err[0]['message'] ?? ''));
             }
+            
+            // Asegurar que tenga QR
+            $aula->qr_url = $this->ensureQrCode((int)$aula->id);
         }
         return $aula;
     }
 
     public function findAll(): array {
         $sql = "SELECT 
-                    CAST(id_aula AS VARCHAR(20)) AS id,
-                    nombre, pabellon AS edificio, piso, capacidad, observaciones AS equipamiento, estado
-                FROM dbo.Aula
-                ORDER BY nombre";
+                    CAST(a.id_aula AS VARCHAR(20)) AS id,
+                    a.nombre, a.pabellon AS edificio, a.piso, a.capacidad, a.observaciones AS equipamiento, a.estado,
+                    qr.url_qr
+                FROM dbo.Aula a
+                LEFT JOIN dbo.QRAula qr ON qr.id_aula = a.id_aula
+                ORDER BY a.nombre";
         $stmt = sqlsrv_query($this->conn, $sql);
         if ($stmt === false) {
             $err = sqlsrv_errors();
@@ -69,6 +98,11 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         }
         $aulas = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $qrUrl = $row['url_qr'];
+            if (empty($qrUrl) && !empty($row['id'])) {
+                // Generar dinámicamente si falta
+                $qrUrl = $this->ensureQrCode((int)$row['id']);
+            }
             $aulas[] = new Aula(
                 $row['id'],
                 $row['nombre'],
@@ -76,7 +110,10 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
                 $row['piso'],
                 (int)$row['capacidad'],
                 $row['equipamiento'],
-                $row['estado']
+                $row['estado'],
+                null,
+                null,
+                $qrUrl
             );
         }
         return $aulas;
@@ -84,16 +121,22 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
 
     public function findById(string $id): ?Aula {
         $sql = "SELECT 
-                    CAST(id_aula AS VARCHAR(20)) AS id,
-                    nombre, pabellon AS edificio, piso, capacidad, observaciones AS equipamiento, estado
-                FROM dbo.Aula
-                WHERE id_aula = ?";
+                    CAST(a.id_aula AS VARCHAR(20)) AS id,
+                    a.nombre, a.pabellon AS edificio, a.piso, a.capacidad, a.observaciones AS equipamiento, a.estado,
+                    qr.url_qr
+                FROM dbo.Aula a
+                LEFT JOIN dbo.QRAula qr ON qr.id_aula = a.id_aula
+                WHERE a.id_aula = ?";
         $stmt = sqlsrv_query($this->conn, $sql, [(int)$id]);
         if ($stmt === false) {
             $err = sqlsrv_errors();
             throw new RuntimeException('Error al buscar aula: ' . ($err[0]['message'] ?? ''));
         }
         if ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $qrUrl = $row['url_qr'];
+            if (empty($qrUrl)) {
+                $qrUrl = $this->ensureQrCode((int)$id);
+            }
             return new Aula(
                 $row['id'],
                 $row['nombre'],
@@ -101,7 +144,10 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
                 $row['piso'],
                 (int)$row['capacidad'],
                 $row['equipamiento'],
-                $row['estado']
+                $row['estado'],
+                null,
+                null,
+                $qrUrl
             );
         }
         return null;

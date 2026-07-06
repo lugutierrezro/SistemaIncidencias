@@ -19,6 +19,9 @@ try {
     $aulaRepo = new SqlsrvAulaRepository();
     if ($aulaId) {
         $aula = $aulaRepo->findById($aulaId);
+        if ($aula) {
+            $aula = $aula->toArray();
+        }
     }
 } catch (Throwable $e) {
     $errorMsg = 'Error al conectar con el servidor.';

@@ -23,6 +23,7 @@ if ($incidenciaId) {
             foreach ($mensajesEntities as $m) {
                 $mensajes[] = $m->toArray();
             }
+            $incidencia = $incidencia->toArray();
         }
     } catch (Throwable $e) {
         $errorMsg = 'Error al conectar con la base de datos.';

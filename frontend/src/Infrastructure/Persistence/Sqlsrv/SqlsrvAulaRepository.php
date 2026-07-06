@@ -14,31 +14,50 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         $this->conn = SqlsrvConnection::getConnection();
     }
 
+    private function buildDynamicQrUrl(string $relativeUrl): string {
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
+        $scriptDir = ($scriptDir === '/' || $scriptDir === '\\') ? '' : $scriptDir;
+        
+        $relativeUrl = ltrim($relativeUrl, '/');
+        // Si por alguna razón es una URL absoluta guardada previamente en la base de datos, limpiarla a relativa
+        if (preg_match('/https?:\/\/[^\/]+(.*)/i', $relativeUrl, $matches)) {
+            $relativeUrl = ltrim($matches[1], '/');
+            // Quitar subdirectorio si ya viene en la URL absoluta guardada
+            if (!empty($scriptDir)) {
+                $cleanScriptDir = ltrim($scriptDir, '/');
+                if (strpos($relativeUrl, $cleanScriptDir) === 0) {
+                    $relativeUrl = substr($relativeUrl, strlen($cleanScriptDir));
+                    $relativeUrl = ltrim($relativeUrl, '/');
+                }
+            }
+        }
+        
+        return "http://" . $host . $scriptDir . "/" . $relativeUrl;
+    }
+
     private function ensureQrCode(int $aulaId): string {
         $stmt = sqlsrv_query($this->conn, "SELECT url_qr FROM dbo.QRAula WHERE id_aula = ?", [$aulaId]);
         if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             if (!empty($row['url_qr'])) {
-                return $row['url_qr'];
+                return $this->buildDynamicQrUrl($row['url_qr']);
             }
         }
         
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '');
-        $scriptDir = ($scriptDir === '/' || $scriptDir === '\\') ? '' : $scriptDir;
-        // URL dinámica amigable para escaneo móvil y clicks directos
-        $urlQr = "http://" . $host . $scriptDir . "/reportar.php?aula_id=" . $aulaId;
+        // Guardar como URL relativa para independizar de la IP/Puerto/Servidor
+        $relativeUrl = "reportar.php?aula_id=" . $aulaId;
         
         $insert = sqlsrv_query(
             $this->conn, 
             "INSERT INTO dbo.QRAula (id_qr_aula, id_aula, url_qr) 
              VALUES (ISNULL((SELECT MAX(id_qr_aula) FROM dbo.QRAula), 0) + 1, ?, ?)", 
-            [$aulaId, $urlQr]
+            [$aulaId, $relativeUrl]
         );
         if ($insert === false) {
             $err = sqlsrv_errors();
         }
         
-        return $urlQr;
+        return $this->buildDynamicQrUrl($relativeUrl);
     }
 
     public function save(Aula $aula): Aula {
@@ -106,8 +125,9 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $qrUrl = $row['url_qr'];
             if (empty($qrUrl) && !empty($row['id'])) {
-                // Generar dinámicamente si falta
                 $qrUrl = $this->ensureQrCode((int)$row['id']);
+            } else {
+                $qrUrl = $this->buildDynamicQrUrl($qrUrl);
             }
             $aulas[] = new Aula(
                 $row['id'],
@@ -142,6 +162,8 @@ class SqlsrvAulaRepository implements AulaRepositoryInterface {
             $qrUrl = $row['url_qr'];
             if (empty($qrUrl)) {
                 $qrUrl = $this->ensureQrCode((int)$id);
+            } else {
+                $qrUrl = $this->buildDynamicQrUrl($qrUrl);
             }
             return new Aula(
                 $row['id'],

@@ -130,9 +130,11 @@ include 'components/sidebar.php';
           </div>
           
           <div class="py-3">
-            <div style="background:#fff; padding:12px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,0.06); display:inline-block;">
-              <img id="imgQr" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=<?php echo urlencode($aula['qr_url']); ?>" alt="QR Aula" style="width:200px; height:200px;">
-            </div>
+            <a href="<?php echo htmlspecialchars($aula['qr_url']); ?>" target="_blank" title="Probar Escaneo QR" style="text-decoration:none; display:inline-block;">
+              <div style="background:#fff; padding:12px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,0.06); display:inline-block; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+                <img id="imgQr" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=<?php echo urlencode($aula['qr_url']); ?>" alt="QR Aula" style="width:200px; height:200px;">
+              </div>
+            </a>
             <p class="text-muted mt-3" style="font-size:0.8rem; max-width:280px; margin:0.8rem auto 0;">
               Imprime y pega este código en la entrada del aula. Los docentes podrán escanearlo para reportar fallas al instante.
             </p>

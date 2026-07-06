@@ -313,7 +313,20 @@ $idShort = strtoupper(substr($incidencia['id'], 0, 8));
         const mensajes = await r.json();
         const box = document.getElementById('chatMessages');
         box.innerHTML = '';
-        mensajes.forEach(m => appendMessage(m));
+        
+        // Si no hay mensajes, mostrar tarjeta de bienvenida amigable
+        if (mensajes.length === 0) {
+          box.innerHTML = `
+            <div style="background:rgba(255,255,255,0.9); border-radius:18px; border:1.5px dashed #0ea5e9; padding:1.75rem; text-align:center; margin:1rem auto; max-width:400px; box-shadow:0 10px 25px rgba(0,0,0,0.03);">
+              <div style="width:50px; height:50px; border-radius:50%; background:#e0f2fe; color:#0ea5e9; display:flex; align-items:center; justify-content:center; font-size:1.3rem; margin:0 auto 0.85rem;"><i class="fa-solid fa-headset"></i></div>
+              <h6 class="fw-bold mb-1" style="color:var(--text-dark);">¡Conexión de Soporte Lista!</h6>
+              <p class="text-muted mb-0" style="font-size:0.8rem; line-height:1.45;">Escribe directamente aquí el problema que tienes en este salón y el equipo técnico de soporte te responderá de inmediato.</p>
+            </div>
+          `;
+        } else {
+          mensajes.forEach(m => appendMessage(m));
+        }
+        
         if (mensajes.length) ultimoMsgId = mensajes[mensajes.length-1].id;
         box.scrollTop = box.scrollHeight;
       } catch (e) {}

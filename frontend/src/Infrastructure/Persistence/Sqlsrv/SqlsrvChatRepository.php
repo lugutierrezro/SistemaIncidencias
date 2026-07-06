@@ -22,7 +22,7 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
                     ISNULL(a.nombre, p.nombres) AS usuario_nombre,
                     'activa' AS estado,
                     CAST(i.id_incidencia AS VARCHAR(20)) AS incidencia_id,
-                    i.asunto AS incidencia_titulo,
+                    i.asunto + ISNULL(' (' + a.nombre + ')', '') AS incidencia_titulo,
                     CONVERT(NVARCHAR(30), i.fecha_reporte, 126) AS inserted_at,
                     CONVERT(NVARCHAR(30), ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte), 126) AS updated_at
                 FROM dbo.Incidencia i

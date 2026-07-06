@@ -30,7 +30,7 @@ class SqlsrvChatRepository implements ChatRepositoryInterface {
                 LEFT JOIN dbo.Usuario u ON u.id_usuario = i.id_usuario
                 LEFT JOIN dbo.Persona p ON p.id_persona = u.id_persona
                 WHERE i.id_estado_incidencia IN (1, 2)
-                ORDER BY i.fecha_reporte DESC";
+                ORDER BY ISNULL((SELECT MAX(fecha_envio) FROM dbo.MensajeIncidencia WHERE id_incidencia = i.id_incidencia), i.fecha_reporte) DESC";
         $stmt = sqlsrv_query($this->conn, $sql);
         if ($stmt === false) {
             $err = sqlsrv_errors();
